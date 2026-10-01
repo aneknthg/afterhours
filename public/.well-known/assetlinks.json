@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.joinafterhours.app",
+      "sha256_cert_fingerprints": [
+        "C5:44:E9:B6:DF:21:52:23:75:70:C1:EF:7E:ED:23:FB:9C:2C:B4:BC:86:C1:F4:14:1A:5F:0C:2D:C9:94:14:83"
+      ]
+    }
+  }
+]

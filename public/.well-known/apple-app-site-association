@@ -1,0 +1,15 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["FXMTQ7GN5N.com.afterhoursapp.ios"],
+        "components": [
+          {
+            "/": "/event/*",
+            "comment": "Shared event links open the app on that event"
+          }
+        ]
+      }
+    ]
+  }
+}

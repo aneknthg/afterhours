@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: tests and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: unit tests
+        run: npm test
+      - name: production build
+        run: npm run build
+
+  city-sync:
+    name: city map in sync with the app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The app repo is private. This reads it with a read-only deploy key
+      # rather than a PAT: scoped to that one repo, cannot write to it, and does
+      # not expire. The private half is the APP_REPO_KEY secret here; the public
+      # half is a deploy key on Afterhours-App titled
+      # "city-sync (Afterhours-Website CI)".
+      - name: check out the app repo
+        id: app
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          repository: afterhoursadmins/Afterhours-App
+          ssh-key: ${{ secrets.APP_REPO_KEY }}
+          path: app-repo
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Without the secret the check cannot see the other file. It warns rather
+      # than fails so a missing secret does not read as real drift. Once the
+      # secret exists, delete this step and let the next one carry the job.
+      - name: no token, cannot compare
+        if: steps.app.outcome != 'success'
+        run: |
+          echo "::warning title=city-sync skipped::Could not read the app's lib/city.ts (APP_REPO_KEY missing or rejected). The two city maps are NOT being checked. See the comment in .github/workflows/ci.yml."
+          echo "### city-sync skipped" >> "$GITHUB_STEP_SUMMARY"
+          echo "The app repo could not be read, so drift between the two city maps is currently unchecked." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: compare the two city maps
+        if: steps.app.outcome == 'success'
+        run: node scripts/check-city-sync.mjs app-repo/lib/city.ts

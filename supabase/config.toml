@@ -1,0 +1,54 @@
+# Supabase CLI project config.
+#
+# This file exists for one reason: to pin verify_jwt on the functions that must
+# run with the gateway check OFF. The CLI defaults verify_jwt to true on every
+# deploy, so without this a plain `supabase functions deploy <name>` silently
+# re-enables it. Nothing errors — requests just start coming back as a
+# plain-text 401 that never reaches the function, which is close to
+# undebuggable if you don't already know to look here.
+#
+# Only functions that are currently false are listed. Everything else is left
+# to the CLI default (true), which matches production. Do not add entries
+# speculatively: writing a value that differs from the deployed state turns
+# this file from a lock into a silent change.
+#
+# Keep in sync with the copy in Afterhours-Website-main — both repos deploy to
+# the same project, so whichever one you deploy from wins.
+#
+# To check reality before editing:
+#   curl -s "https://api.supabase.com/v1/projects/$REF/functions" \
+#     -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" | jq '.[] | {slug, verify_jwt}'
+
+project_id = "ehpgqsghiocvpxnaijnz"
+
+# verify-identity handles three actions and authenticates all of them itself:
+#   'start' / 'complete' — Supabase JWT, checked in-function via auth.getUser()
+#   'handoff'            — one-time token, dispatched BEFORE the getUser() gate
+#
+# The gateway check must stay off because 'handoff' is called by the hosted
+# /liveness page, which has no Supabase session. It sends the publishable key,
+# and new-format sb_publishable_ keys are not JWTs, so the gateway rejects them
+# outright. Turn this back on and the mobile liveness handoff breaks silently.
+[functions.verify-identity]
+verify_jwt = false
+
+# Trigger-driven; authenticates inside the function rather than at the gateway.
+# Note the other push webhooks (notify-chat, notify-connection,
+# notify-event-update) currently run with verify_jwt = true and work, so their
+# triggers must be sending a valid JWT. They are deliberately not listed here.
+[functions.notify-rsvp]
+verify_jwt = false
+
+# Authenticated by a shared CRON_SECRET header, not a user JWT — no signed-in
+# user exists when the weekly payout batch runs. Confirmed false on the deployed
+# function; listed here so a deploy from this repo does not silently re-enable it.
+[functions.run-payouts]
+verify_jwt = false
+
+# Razorpay calls this with no Supabase session and no Authorization header — the
+# x-razorpay-signature HMAC over the raw body is what authenticates it instead.
+# With the gateway check ON, every webhook would be rejected as a plain-text 401
+# that never reaches the function, and payments made while the client was gone
+# would silently never settle.
+[functions.razorpay-webhook]
+verify_jwt = false
